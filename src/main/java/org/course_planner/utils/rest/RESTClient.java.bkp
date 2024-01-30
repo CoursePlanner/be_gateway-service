@@ -1,0 +1,191 @@
+package org.course_planner.utils.rest;
+
+import lombok.SneakyThrows;
+import org.course_planner.utils.configs.CustomObjectMapper;
+import org.course_planner.utils.dto.ExceptionResponseDTO;
+import org.course_planner.utils.exceptions.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.*;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
+
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
+
+@Component
+public class RESTClient {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RESTClient.class);
+
+    @Autowired
+    private APIPropertyHelper apiPropertyHelper;
+
+    @Autowired
+    private WebClient.Builder builder;
+
+    public <T> GenericResponseTemplate<T> execute(final String hostReference, final String endpointReference,
+                                                  HttpHeaders headerMap, Object request,
+                                                  Map<String, String> queryParams, List<String> pathParams) {
+        GenericResponseTemplate<T> finalResponse = new GenericResponseTemplate<>();
+        Consumer<HttpHeaders> headers = constructHeaders(headerMap);
+        HttpMethod httpMethod = apiPropertyHelper.getMethod(hostReference, endpointReference);
+
+        WebClient webClient = new CustomRESTClientBuilder(apiPropertyHelper)
+                .getWebClient(builder, hostReference, endpointReference);
+
+        String url = apiPropertyHelper.getHostBaseUrl(hostReference) +
+                apiPropertyHelper.getEndpoint(hostReference, endpointReference);
+
+        StringBuilder pathVariables = new StringBuilder();
+
+        if (pathParams != null) {
+            pathParams.forEach(pathVariable -> {
+                pathVariables.append("/").append(pathVariable);
+            });
+        }
+
+        if (queryParams == null) {
+            queryParams = new HashMap<>();
+        }
+
+        try {
+            ResponseEntity<String> responseStr;
+            if (httpMethod.equals(HttpMethod.POST) || httpMethod.equals(HttpMethod.PUT)) {
+                responseStr = webClient.method(httpMethod).uri(url + pathVariables, queryParams)
+                        .headers(headers).bodyValue(request).retrieve().toEntity(String.class).toFuture().get();
+            } else {
+                responseStr = webClient.method(httpMethod).uri(url + pathVariables, queryParams)
+                        .headers(headers).retrieve().toEntity(String.class).toFuture().get();
+            }
+            constructFinalResponse(finalResponse, responseStr);
+        } catch (ExecutionException | InterruptedException ex) {
+            if (ex.getCause() instanceof WebClientResponseException webClientResponseException) {
+                tryExceptionParsing(webClientResponseException.getResponseBodyAsString());
+                throw new APIExecutionException(webClientResponseException.getMessage(),
+                        HttpStatus.valueOf(webClientResponseException.getStatusCode().value()));
+            }
+            throw new APIExecutionException(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return finalResponse;
+    }
+
+    public <T> GenericResponseTemplate<T> executeAsync(final String hostReference, final String endpointReference,
+                                                  HttpHeaders headerMap, Object request,
+                                                  Map<String, String> queryParams, List<String> pathParams) {
+        GenericResponseTemplate<T> finalResponse = new GenericResponseTemplate<>();
+        Consumer<HttpHeaders> headers = constructHeaders(headerMap);
+        HttpMethod httpMethod = apiPropertyHelper.getMethod(hostReference, endpointReference);
+
+        WebClient webClient = new CustomRESTClientBuilder(apiPropertyHelper)
+                .getWebClient(builder, hostReference, endpointReference);
+
+        String url = apiPropertyHelper.getHostBaseUrl(hostReference) +
+                apiPropertyHelper.getEndpoint(hostReference, endpointReference);
+
+        StringBuilder pathVariables = new StringBuilder();
+
+        if (pathParams != null) {
+            pathParams.forEach(pathVariable -> {
+                pathVariables.append("/").append(pathVariable);
+            });
+        }
+
+        if (queryParams == null) {
+            queryParams = new HashMap<>();
+        }
+
+        try {
+            Mono<String> responseStr;
+            if (httpMethod.equals(HttpMethod.POST) || httpMethod.equals(HttpMethod.PUT)) {
+                responseStr = webClient.method(httpMethod).uri(url + pathVariables, queryParams)
+                        .headers(headers).bodyValue(request).retrieve().bodyToMono(String.class);
+            } else {
+                responseStr = webClient.method(httpMethod).uri(url + pathVariables, queryParams)
+                        .headers(headers).retrieve().bodyToMono(String.class);
+            }
+            responseStr.flatMap(value -> {
+                finalResponse.setBody(value);
+                return null;
+            });
+//            constructFinalResponse(finalResponse, responseStr);
+        } catch (Exception ex) {
+            if (ex.getCause() instanceof WebClientResponseException webClientResponseException) {
+                tryExceptionParsing(webClientResponseException.getResponseBodyAsString());
+                throw new APIExecutionException(webClientResponseException.getMessage(),
+                        HttpStatus.valueOf(webClientResponseException.getStatusCode().value()));
+            }
+            throw new APIExecutionException(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return finalResponse;
+    }
+
+    public WebClient getCustomWebClient(final String hostReference, final String endpointReference) {
+        return new CustomRESTClientBuilder(apiPropertyHelper)
+                .getWebClient(builder, hostReference, endpointReference);
+    }
+
+    private <T> void constructFinalResponse(GenericResponseTemplate<T> finalResponse, ResponseEntity<String> responseStr) {
+        tryExceptionParsing(responseStr.getBody());
+        finalResponse.setBody(responseStr.getBody());
+        finalResponse.setHeaders(responseStr.getHeaders());
+        finalResponse.setHttpStatus(HttpStatus.valueOf(responseStr.getStatusCode().value()));
+    }
+
+    @SneakyThrows
+    private void tryExceptionParsing(String responseStrBody) {
+        ExceptionResponseDTO responsePOJO = null;
+        try {
+            responsePOJO = CustomObjectMapper.getObjectMapper()
+                    .readValue(responseStrBody, ExceptionResponseDTO.class);
+        } catch (Exception ex) {
+            LOGGER.debug("tryExceptionParsing: Response string: {}", responseStrBody);
+            return;
+        }
+        if (responsePOJO != null) {
+            switch (responsePOJO.getExceptionType()) {
+                case APIExecutionException.instanceName ->
+                        throw new APIExecutionException(responsePOJO.getErrorMessage(), responsePOJO.getStatus());
+                case AuthenticationException.instanceName ->
+                        throw new AuthenticationException(responsePOJO.getErrorMessage(), responsePOJO.getStatus());
+                case MessageException.instanceName ->
+                        throw new MessageException(responsePOJO.getErrorMessage(), responsePOJO.getStatus());
+                case PrerequisiteFailureException.instanceName ->
+                        throw new PrerequisiteFailureException(responsePOJO.getErrorMessage(), responsePOJO.getStatus());
+                case PropertyNotFoundException.instanceName ->
+                        throw new PropertyNotFoundException(responsePOJO.getErrorMessage(), responsePOJO.getStatus());
+                case UserException.instanceName ->
+                        throw new UserException(responsePOJO.getErrorMessage(), responsePOJO.getStatus());
+            }
+        }
+    }
+
+    private Consumer<HttpHeaders> constructHeaders(HttpHeaders headerMap) {
+        if (headerMap.get(HttpHeaders.CONTENT_TYPE) == null) {
+            headerMap.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        }
+        if (headerMap.get(HttpHeaders.ACCEPT) == null) {
+            headerMap.add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        }
+        return httpHeaders -> httpHeaders.addAll(headerMap);
+    }
+
+    public String getBasicAuthenticationHeader(String username, String password) {
+        String valueToEncode = username + ":" + password;
+        return "Basic " + Base64.getEncoder().encodeToString(valueToEncode.getBytes());
+    }
+
+    private String getJsonBody(Object request) {
+        try {
+            return CustomObjectMapper.getObjectMapper().writeValueAsString(request);
+        } catch (Exception ex) {
+            return "";
+        }
+    }
+}
