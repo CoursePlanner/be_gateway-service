@@ -2,7 +2,6 @@ package org.course_planner.gws.dto.auth;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Data

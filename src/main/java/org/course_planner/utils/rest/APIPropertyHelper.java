@@ -34,7 +34,7 @@ public class APIPropertyHelper {
 
     public String getEndpoint(String hostPropertyReference, String endpointPropertyReference) {
         String value = environment.getProperty(joinPropertyParts(CONST_API_CONFIG_PARENT,
-                hostPropertyReference, CONST_API_EP_CONFIG_PARENT, endpointPropertyReference, CONST_API_EP),
+                        hostPropertyReference, CONST_API_EP_CONFIG_PARENT, endpointPropertyReference, CONST_API_EP),
                 String.class);
 
         if (value == null) {
@@ -75,7 +75,7 @@ public class APIPropertyHelper {
 
     public HttpMethod getMethod(String hostPropertyReference, String endpointPropertyReference) {
         String value = environment.getProperty(joinPropertyParts(CONST_API_CONFIG_PARENT,
-                hostPropertyReference, CONST_API_EP_CONFIG_PARENT, endpointPropertyReference, CONST_METHOD),
+                        hostPropertyReference, CONST_API_EP_CONFIG_PARENT, endpointPropertyReference, CONST_METHOD),
                 String.class, "");
 
         if (value.isBlank()) {
@@ -84,7 +84,7 @@ public class APIPropertyHelper {
         return HttpMethod.valueOf(value);
     }
 
-    private String joinPropertyParts(String ...values) {
+    private String joinPropertyParts(String... values) {
         StringBuilder finalProperty = new StringBuilder();
         for (String value : values) {
             finalProperty.append(value).append(CONST_PROPERTY_SEPARATOR);

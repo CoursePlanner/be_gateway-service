@@ -1,5 +1,7 @@
 package org.course_planner.gws.config;
 
+//import org.course_planner.gws.filter.CORSFilter;
+
 import org.course_planner.gws.filter.CORSFilter;
 import org.course_planner.gws.filter.JwtTokenFilter;
 import org.slf4j.Logger;

@@ -8,7 +8,7 @@ import org.course_planner.gws.constants.AuthenticationConstants;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -36,11 +36,12 @@ public class CORSFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
         response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, getListAsStringForHeader(allowedHosts));
         response.setHeader(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, getListAsStringForHeader(allowedHeaders));
         response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, getListAsStringForHeader(allowedHeaders));
-        response.setHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "*");
+        response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "*");
 
         filterChain.doFilter(request, response);
     }

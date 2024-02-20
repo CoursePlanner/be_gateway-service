@@ -54,6 +54,12 @@ public class CPExceptionControllerAdvice extends ResponseEntityExceptionHandler 
         return new ResponseEntity<>(responseDTO, responseDTO.getStatus());
     }
 
+    @ExceptionHandler(value = {UnhandledException.class})
+    protected ResponseEntity<ExceptionResponseDTO> handleAuthorizationException(UnhandledException ex) {
+        ExceptionResponseDTO responseDTO = new ExceptionResponseDTO(ex);
+        return new ResponseEntity<>(responseDTO, responseDTO.getStatus());
+    }
+
     @ExceptionHandler(value = {Exception.class})
     protected ResponseEntity<ExceptionResponseDTO> handleAllExceptions(Exception ex) {
         ExceptionResponseDTO responseDTO = new ExceptionResponseDTO();
