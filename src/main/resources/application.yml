@@ -50,6 +50,24 @@ org:
             connection-timeout: ""
             read-timeout: ""
             method: "DELETE"
+      order-service:
+        host: "http://localhost:9003/api/order-service"
+        endpoint-configs:
+          orders:
+            endpoint: "/orders"
+            connection-timeout: 1000
+            read-timeout: 3000
+            method: "POST"
+          order:
+            endpoint: "/order"
+            connection-timeout: ""
+            read-timeout: ""
+            method: "GET"
+          create:
+            endpoint: "/create"
+            connection-timeout: ""
+            read-timeout: ""
+            method: "POST"
       message-service:
         host: "http://localhost:9003/api/message-service"
         endpoint-configs:
