@@ -68,7 +68,11 @@ public class CPExceptionControllerAdvice extends ResponseEntityExceptionHandler 
         responseDTO.setErrorMessage(ex.getMessage());
         responseDTO.setThrowable(ex);
         responseDTO.setTimestamp(LocalDateTime.now());
-        responseDTO.setError(ex.getCause().getMessage());
+        if (ex.getCause() != null) {
+            responseDTO.setError(ex.getCause().getMessage());
+        } else {
+            responseDTO.setError(ex.getMessage());
+        }
         return new ResponseEntity<>(responseDTO, responseDTO.getStatus());
     }
 }
